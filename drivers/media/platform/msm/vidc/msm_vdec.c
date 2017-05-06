@@ -49,6 +49,27 @@ static const char *const mpeg_video_output_order[] = {
 	"Decode Order",
 	NULL
 };
+static const char *const mpeg_video_vidc_extradata[] = {
+	"Extradata none",
+	"Extradata MB Quantization",
+	"Extradata Interlace Video",
+	"Extradata VC1 Framedisp",
+	"Extradata VC1 Seqdisp",
+	"Extradata timestamp",
+	"Extradata S3D Frame Packing",
+	"Extradata Frame Rate",
+	"Extradata Panscan Window",
+	"Extradata Recovery point SEI",
+	"Extradata Closed Caption UD",
+	"Extradata AFD UD",
+	"Extradata Multislice info",
+	"Extradata number of concealed MB",
+	"Extradata metadata filler",
+	"Extradata input crop",
+	"Extradata digital zoom",
+	"Extradata aspect ratio",
+	"Extradata mpeg2 seqdisp",
+};
 static const char *const mpeg_vidc_video_alloc_mode_type[] = {
 	"Buffer Allocation Static",
 	"Buffer Allocation Ring Buffer",
@@ -224,7 +245,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_VPX_COLORSPACE,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -246,12 +267,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_STREAM_USERDATA) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_QP) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_DISPLAY_COLOUR_SEI) |
-			(1 <<
-			V4L2_MPEG_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_VUI_DISPLAY) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_VPX_COLORSPACE)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 		.step = 0,
@@ -504,26 +520,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.default_value = 0,
 		.step = 1,
 		.menu_skip_mask = 0,
-		.qmenu = NULL,
-	},
-	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY,
-		.name = "Session Priority",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_ENABLE,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_DISABLE,
-		.default_value = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_DISABLE,
-		.step = 1,
-		.qmenu = NULL,
-	},
-	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE,
-		.name = "Set Decoder Operating rate",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 0,
-		.maximum = 300 << 16,  /* 300 fps in Q16 format*/
-		.default_value = 0,
-		.step = 1,
 		.qmenu = NULL,
 	},
 };
@@ -1450,7 +1446,6 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");
-			msm_comm_session_clean(inst);
 			goto err_invalid_fmt;
 		}
 
@@ -1586,7 +1581,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");
-			msm_comm_session_clean(inst);
 			break;
 		}
 		rc = msm_comm_try_get_bufreqs(inst);
@@ -2406,14 +2400,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		dprintk(VIDC_DBG, "%s non_secure output2\n",
 			ctrl->val ? "Enabling" : "Disabling");
 		pdata = &hal_property;
-		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY:
-		property_id = HAL_CONFIG_REALTIME;
-		hal_property.enable = ctrl->val;
-		pdata = &hal_property;
-		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
-		property_id = 0;
 		break;
 	default:
 		break;

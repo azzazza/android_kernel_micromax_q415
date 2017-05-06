@@ -51,39 +51,6 @@
 #define IS_SYS_CMD_VALID(cmd) (((cmd) >= SYS_MSG_START) && \
 		((cmd) <= SYS_MSG_END))
 
-const char *const mpeg_video_vidc_extradata[] = {
-	"Extradata none",
-	"Extradata MB Quantization",
-	"Extradata Interlace Video",
-	"Extradata VC1 Framedisp",
-	"Extradata VC1 Seqdisp",
-	"Extradata timestamp",
-	"Extradata S3D Frame Packing",
-	"Extradata Frame Rate",
-	"Extradata Panscan Window",
-	"Extradata Recovery point SEI",
-	"Extradata Multislice info",
-	"Extradata number of concealed MB",
-	"Extradata metadata filler",
-	"Extradata input crop",
-	"Extradata digital zoom",
-	"Extradata aspect ratio",
-	"Extradata mpeg2 seqdisp",
-	"Extradata stream userdata",
-	"Extradata frame QP",
-	"Extradata frame bits info",
-	"Extradata LTR",
-	"Extradata macroblock metadata",
-	"Extradata VQZip SEI",
-	"Extradata YUV Stats",
-	"Extradata ROI QP",
-	"Extradata output crop",
-	"Extradata display colour SEI",
-	"Extradata light level SEI",
-	"Extradata display VUI",
-	"Extradata vpx color space",
-};
-
 struct getprop_buf {
 	struct list_head list;
 	void *data;
@@ -106,15 +73,6 @@ static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_THUMBNAIL);
 }
 
-static inline bool is_non_realtime_session(struct msm_vidc_inst *inst)
-{
-	int rc = 0;
-	struct v4l2_control ctrl = {
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY
-	};
-	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
-	return (!rc && ctrl.value);
-}
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 {
 	if (inst->session_type == MSM_VIDC_DECODER) {
@@ -132,21 +90,11 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 {
 	int output_port_mbs, capture_port_mbs;
-	int fps, rc;
-	struct v4l2_control ctrl;
-
 	output_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
 		inst->prop.height[OUTPUT_PORT]);
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
-
-	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE;
-	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
-	if (!rc && ctrl.value) {
-		fps = (ctrl.value >> 16) ? ctrl.value >> 16 : 1;
-		return max(output_port_mbs, capture_port_mbs) * fps;
-	} else
-		return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
+	return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
 }
 
 static inline int msm_comm_get_mbs_per_frame(struct msm_vidc_inst *inst)
@@ -180,16 +128,14 @@ enum load_calc_quirks {
 	LOAD_CALC_NO_QUIRKS = 0,
 	LOAD_CALC_IGNORE_TURBO_LOAD = 1 << 0,
 	LOAD_CALC_IGNORE_THUMBNAIL_LOAD = 1 << 1,
-	LOAD_CALC_IGNORE_NON_REALTIME_LOAD = 1 << 2,
 };
 
 static int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 		enum load_calc_quirks quirks)
 {
 	int load = 0;
-
 	if (!(inst->state >= MSM_VIDC_OPEN_DONE &&
-		inst->state < MSM_VIDC_STOP_DONE))
+			inst->state < MSM_VIDC_STOP_DONE))
 		return 0;
 
 	load = msm_comm_get_mbs_per_sec(inst);
@@ -204,9 +150,6 @@ static int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 			load = inst->core->resources.max_load;
 	}
 
-	if (is_non_realtime_session(inst) &&
-		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD))
-		load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
 	return load;
 }
 
@@ -2567,8 +2510,7 @@ static int msm_vidc_load_resources(int flipped_state,
 	int num_mbs_per_sec = 0;
 	struct msm_vidc_core *core;
 	enum load_calc_quirks quirks = LOAD_CALC_IGNORE_TURBO_LOAD |
-		LOAD_CALC_IGNORE_THUMBNAIL_LOAD |
-		LOAD_CALC_IGNORE_NON_REALTIME_LOAD;
+		LOAD_CALC_IGNORE_THUMBNAIL_LOAD;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -4315,18 +4257,6 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	case V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI:
 		ret = HAL_EXTRADATA_METADATA_MBI;
 		break;
-	case V4L2_MPEG_VIDC_EXTRADATA_DISPLAY_COLOUR_SEI:
-		ret = HAL_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI;
-		break;
-	case V4L2_MPEG_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI:
-		ret = HAL_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI;
-		break;
-	case V4L2_MPEG_VIDC_EXTRADATA_VUI_DISPLAY:
-		ret = HAL_EXTRADATA_VUI_DISPLAY_INFO;
-		break;
-	case V4L2_MPEG_VIDC_EXTRADATA_VPX_COLORSPACE:
-		ret = HAL_EXTRADATA_VPX_COLORSPACE;
-		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);
 		break;
@@ -4406,8 +4336,7 @@ static int msm_vidc_load_supported(struct msm_vidc_inst *inst)
 {
 	int num_mbs_per_sec = 0;
 	enum load_calc_quirks quirks = LOAD_CALC_IGNORE_TURBO_LOAD |
-		LOAD_CALC_IGNORE_THUMBNAIL_LOAD |
-		LOAD_CALC_IGNORE_NON_REALTIME_LOAD;
+		LOAD_CALC_IGNORE_THUMBNAIL_LOAD;
 
 	if (inst->state == MSM_VIDC_OPEN_DONE) {
 		num_mbs_per_sec = msm_comm_get_load(inst->core,

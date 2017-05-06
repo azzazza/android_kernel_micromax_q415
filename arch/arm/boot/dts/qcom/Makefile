@@ -28,7 +28,8 @@ dtb-$(CONFIG_ARCH_MSM8974) += msm8974-v1-cdp.dtb \
 	msm8974pro-ac-pm8941-liquid.dtb \
 	msm8974pro-ac-pm8941-mtp.dtb \
 	msm8974pro-ac-pma8084-pm8941-mtp.dtb
-dtb-$(CONFIG_ARCH_MSM8909) += msm8909-qrd-t302.dtb
+dtb-$(CONFIG_ARCH_MSM8909) += dt_19.dtb \
+	dt_22.dtb
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-cdp.dtb \
 	msm8916-cdp-smb1360.dtb \
 	msm8916-mtp.dtb \
