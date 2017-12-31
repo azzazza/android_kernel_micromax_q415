@@ -42,6 +42,10 @@
 
 #define MIN_REFRESH_RATE 30
 
+/* Variable of screen state to export to userspace */
+static bool screen_on = true;
+module_param(screen_on, bool, 0444);
+
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -615,6 +619,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	set_power_suspend_state_pannel_hook(0);
 
+	screen_on = true;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -657,6 +662,8 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		prevent_sleep = false;
 #endif
 	set_power_suspend_state_pannel_hook(1);
+	
+	screen_on = false;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -700,6 +707,7 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 		prevent_sleep = false;
 #endif
 	set_power_suspend_state_pannel_hook(1);
+		screen_on = false;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
