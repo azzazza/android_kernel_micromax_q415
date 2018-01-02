@@ -22,6 +22,14 @@
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+#include <linux/input/doubletap2wake.h>
+#endif
+
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#endif
+
 #include "mdss_dsi.h"
 
 #define DT_CMD_HDR 6
@@ -33,6 +41,10 @@
 #define NT35596_MAX_ERR_CNT 2
 
 #define MIN_REFRESH_RATE 30
+
+/* Variable of screen state to export to userspace */
+static bool screen_on = true;
+module_param(screen_on, bool, 0444);
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
@@ -599,6 +611,16 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_info *pinfo;
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	bool prevent_sleep = (dt2w_switch > 0);
+	if (prevent_sleep && in_phone_call)
+		prevent_sleep = false;
+#endif
+
+	set_power_suspend_state_pannel_hook(0);
+
+	screen_on = true;
+
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
@@ -621,13 +643,27 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 end:
 	pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
 	pr_debug("%s:-\n", __func__);
-	return 0;
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	if (prevent_sleep) {
+	dt2w_scr_suspended = false;
+	}
+#endif
+ 	return 0;
 }
 
 static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_info *pinfo;
+
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	bool prevent_sleep = (dt2w_switch > 0);
+	if (prevent_sleep && in_phone_call)
+		prevent_sleep = false;
+#endif
+	set_power_suspend_state_pannel_hook(1);
+	
+	screen_on = false;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -651,6 +687,11 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 end:
 	pinfo->blank_state = MDSS_PANEL_BLANK_BLANK;
 	pr_debug("%s:-\n", __func__);
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	if (prevent_sleep) {
+	dt2w_scr_suspended = true;
+	}
+#endif
 	return 0;
 }
 
@@ -659,6 +700,14 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_info *pinfo;
+
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	bool prevent_sleep = (dt2w_switch > 0);
+	if (prevent_sleep && in_phone_call)
+		prevent_sleep = false;
+#endif
+	set_power_suspend_state_pannel_hook(1);
+		screen_on = false;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -679,6 +728,11 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
 
 	pr_debug("%s:-\n", __func__);
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	if (prevent_sleep) {
+	dt2w_scr_suspended = true;
+	}
+#endif
 	return 0;
 }
 
