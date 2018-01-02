@@ -39,6 +39,8 @@
 #include <asm/cputime.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#elif defined(CONFIG_POWERSUSPEND)
+#include <linux/powersuspend.h>
 #endif
 
 //#define CPUFREQ_IDLE_TODO
@@ -774,7 +776,7 @@ static int cpufreq_governor_smartass_h3(struct cpufreq_policy *new_policy,
 	return 0;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if (defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_POWERSUSPEND))
 static void smartass_suspend(int cpu, int suspend)
 {
 	struct smartass_info_s *this_smartass = &per_cpu(smartass_info, smp_processor_id());
@@ -806,7 +808,11 @@ static void smartass_suspend(int cpu, int suspend)
 	reset_timer(smp_processor_id(),this_smartass);
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void smartass_early_suspend(struct early_suspend *handler) {
+#elif (defined(CONFIG_POWERSUSPEND))
+static void smartass_early_suspend(struct power_suspend *handler) {
+#endif
 	int i;
 	if (suspended || sleep_ideal_freq==0) // disable behavior for sleep_ideal_freq==0
 		return;
@@ -815,7 +821,11 @@ static void smartass_early_suspend(struct early_suspend *handler) {
 		smartass_suspend(i,1);
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void smartass_late_resume(struct early_suspend *handler) {
+#elif (defined(CONFIG_POWERSUSPEND))
+static void smartass_late_resume(struct power_suspend *handler) {
+#endif
 	int i;
 	if (!suspended) // already not suspended so nothing to do
 		return;
@@ -824,14 +834,18 @@ static void smartass_late_resume(struct early_suspend *handler) {
 		smartass_suspend(i,0);
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static struct early_suspend smartass_power_suspend = {
+#elif (defined(CONFIG_POWERSUSPEND))
+static struct power_suspend smartass_power_suspend = {
+#endif
 	.suspend = smartass_early_suspend,
 	.resume = smartass_late_resume,
-#ifdef CONFIG_MACH_HERO
+#if (defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_MACH_HERO))
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1,
 #endif
 };
-#endif // CONFIG_HAS_EARLYSUSPEND
+#endif // CONFIG_HAS_EARLYSUSPEND || CONFIG_POWERSUSPEND
 
 static int __init cpufreq_smartass_init(void)
 {
@@ -881,6 +895,8 @@ static int __init cpufreq_smartass_init(void)
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&smartass_power_suspend);
+#elif (defined(CONFIG_POWERSUSPEND))
+	register_power_suspend(&smartass_power_suspend);
 #endif
 
 	return cpufreq_register_governor(&cpufreq_gov_smartass_h3);
@@ -897,6 +913,7 @@ static void __exit cpufreq_smartass_exit(void)
 	cpufreq_unregister_governor(&cpufreq_gov_smartass_h3);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&smartass_power_suspend);
+#elif (defined(CONFIG_POWERSUSPEND))
 #endif
 	destroy_workqueue(up_wq);
 	destroy_workqueue(down_wq);
