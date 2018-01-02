@@ -27,6 +27,10 @@ config IOSCHED_VR
 	tristate "VR I/O scheduler"
 	default y
 
+config IOSCHED_TRIPNDROID
+	tristate "TripNDroid I/O scheduler"
+	default y
+
 config IOSCHED_DEADLINE
 	tristate "Deadline I/O scheduler"
 	default y
@@ -78,6 +82,9 @@ choice
 	config DEFAULT_DEADLINE
 		bool "Deadline" if IOSCHED_DEADLINE=y
 
+	config DEFAULT_TRIPNDROID
+		bool "TRIPNDROID" if IOSCHED_TRIPNDROID=y
+
 	config DEFAULT_ROW
 		bool "ROW" if IOSCHED_ROW=y
 		help
@@ -99,6 +106,7 @@ endchoice
 config DEFAULT_IOSCHED
 	string
 	default "vr" if DEFAULT_VR
+	default "tripndroid" if DEFAULT_TRIPNDROID
 	default "deadline" if DEFAULT_DEADLINE
 	default "row" if DEFAULT_ROW
 	default "cfq" if DEFAULT_CFQ
