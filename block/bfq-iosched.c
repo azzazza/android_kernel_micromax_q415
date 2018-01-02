@@ -3789,7 +3789,7 @@ static int bfq_init_queue(struct request_queue *q, struct elevator_type *e)
 	if (eq == NULL)
 		return -ENOMEM;
 
-	bfqd = kzalloc_node(sizeof(*bfqd), GFP_KERNEL, q->node);
+	bfqd = kzalloc_node(sizeof(*bfqd), GFP_KERNEL | __GFP_ZERO, q->node);
 	if (bfqd == NULL) {
 		kobject_put(&eq->kobj);
 		return -ENOMEM;
@@ -3815,7 +3815,6 @@ static int bfq_init_queue(struct request_queue *q, struct elevator_type *e)
 	bfqd->oom_bfqq.entity.ioprio_changed = 1;
 
 	bfqd->queue = q;
-	q->elevator->elevator_data = bfqd;
 
 	spin_lock_irq(q->queue_lock);
 	q->elevator = eq;
@@ -4200,10 +4199,9 @@ static int __init bfq_init(void)
 	device_speed_thresh[0] = (R_fast[0] + R_slow[0]) / 2;
 	device_speed_thresh[1] = (R_fast[1] + R_slow[1]) / 2;
 
-	elv_register(&iosched_bfq);
 	pr_info("BFQ I/O-scheduler: v7r8");
 
-	return 0;
+	return elv_register(&iosched_bfq);
 }
 
 static void __exit bfq_exit(void)
