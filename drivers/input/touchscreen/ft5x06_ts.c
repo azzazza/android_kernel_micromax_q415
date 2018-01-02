@@ -38,6 +38,10 @@
 #include <linux/irq.h>
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+#include <linux/input/doubletap2wake.h>
+#endif
+
 #if defined(CONFIG_FB)
 #include <linux/notifier.h>
 #include <linux/fb.h>
@@ -908,6 +912,13 @@ static int ft5x06_ts_suspend(struct device *dev)
 	char txbuf[2], i;
 	int err;
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	bool prevent_sleep = (dt2w_switch > 0);
+	if (prevent_sleep) {
+		disable_irq_wake(data->client->irq);
+	} else {
+#endif
+
 	if (data->loading_fw) {
 		dev_info(dev, "Firmware loading in process...\n");
 		return 0;
@@ -974,6 +985,9 @@ static int ft5x06_ts_suspend(struct device *dev)
 
 	data->suspended = true;
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	}
+#endif
 	return 0;
 
 pwr_off_fail:
@@ -993,6 +1007,14 @@ static int ft5x06_ts_resume(struct device *dev)
 #ifdef UNISCOPE_DRIVER_QC8909  //liguowei@uniscope.com Jason charge 20140901
         char txbuf[2];        
 #endif
+
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	bool prevent_sleep = (dt2w_switch > 0);
+	if (prevent_sleep) {
+		enable_irq_wake(data->client->irq);
+	} else {
+#endif
+
 	if (!data->suspended) {
 		dev_dbg(dev, "Already in awake state\n");
 		return 0;
@@ -1056,6 +1078,9 @@ static int ft5x06_ts_resume(struct device *dev)
 	   }
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	}
+#endif
 	return 0;
 }
 
@@ -1087,7 +1112,14 @@ static int fb_notifier_callback(struct notifier_block *self,
 	int *blank;
 	struct ft5x06_ts_data *ft5x06_data =
 		container_of(self, struct ft5x06_ts_data, fb_notif);
-
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	bool prevent_sleep;
+	prevent_sleep = (dt2w_switch > 0);
+			if (prevent_sleep) {
+				ft5x06_ts_resume(&ft5x06_data->client->dev);
+				return 0;
+			} else {
+#endif
 	if (evdata && evdata->data && event == FB_EVENT_BLANK &&
 			ft5x06_data && ft5x06_data->client) {
 		blank = evdata->data;
@@ -1096,7 +1128,9 @@ static int fb_notifier_callback(struct notifier_block *self,
 		else if (*blank == FB_BLANK_POWERDOWN)
 			ft5x06_ts_suspend(&ft5x06_data->client->dev);
 	}
-
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	}
+#endif
 	return 0;
 }
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
